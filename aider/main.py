@@ -819,12 +819,23 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
             )
             return 1
 
+    # Normalize required_providers so it can be a single string (comma-separated)
+    # or a list. Config files may provide either form.
+    rp = args.required_providers
+    if rp and not isinstance(rp, list):
+        # If a single string with commas, split; otherwise wrap single value
+        if isinstance(rp, str) and "," in rp:
+            rp = [p.strip() for p in rp.split(",") if p.strip()]
+        else:
+            rp = [rp]
+
     main_model = models.Model(
         args.model,
         weak_model=args.weak_model,
         editor_model=args.editor_model,
         editor_edit_format=args.editor_edit_format,
         verbose=args.verbose,
+        required_providers=rp,
     )
 
     # Check if deprecated remove_reasoning is set

@@ -310,13 +310,22 @@ model_info_manager = ModelInfoManager()
 
 class Model(ModelSettings):
     def __init__(
-        self, model, weak_model=None, editor_model=None, editor_edit_format=None, verbose=False
+        self,
+        model,
+        weak_model=None,
+        editor_model=None,
+        editor_edit_format=None,
+        verbose=False,
+        required_providers=None,
     ):
         # Map any alias to its canonical name
         model = MODEL_ALIASES.get(model, model)
 
         self.name = model
         self.verbose = verbose
+        # List of required backend providers for OpenRouter requests
+        # (populated from CLI args via main when provided)
+        self.required_providers = required_providers
 
         self.max_chat_history_tokens = 1024
         self.weak_model = None
@@ -987,6 +996,34 @@ class Model(ModelSettings):
             dump(kwargs)
         kwargs["messages"] = messages
 
+        # Ensure OpenRouter provider ordering is enforced when using an
+        # OpenRouter base URL and the user requested required providers.
+        try:
+            api_base = os.environ.get("OPENAI_API_BASE", "") or os.environ.get("OPENROUTER_API_BASE", "")
+        except Exception:
+            api_base = ""
+
+        try:
+            api_base = os.environ.get("OPENAI_API_BASE", "") or os.environ.get("OPENROUTER_API_BASE", "")
+        except Exception:
+            api_base = ""
+
+        api_base_is_openrouter = bool(api_base and "openrouter.ai" in api_base)
+        model_is_openrouter = self.name.startswith("openrouter/")
+
+        if api_base_is_openrouter or model_is_openrouter:
+            if self.required_providers:
+                extra_body = kwargs.get("extra_body") or {}
+                extra_body["provider"] = {"order": list(self.required_providers)}
+                # Prevent fallback to providers not in the specified list
+                extra_body["allow_fallbacks"] = False
+                kwargs["extra_body"] = extra_body
+            if self.required_providers:
+                extra_body = kwargs.get("extra_body") or {}
+                extra_body["provider"] = {"order": list(self.required_providers)}
+                # Prevent fallback to providers not in the specified list
+                extra_body["allow_fallbacks"] = False
+                kwargs["extra_body"] = extra_body
         # Are we using github copilot?
         if "GITHUB_COPILOT_TOKEN" in os.environ:
             if "extra_headers" not in kwargs:

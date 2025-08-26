@@ -218,6 +218,12 @@ def get_parser(default_config_files, git_root):
         ),
     )
     group.add_argument(
+        "--required-providers",
+        type=str,
+        action="append",
+        help="Specify required backend providers for OpenRouter models (can be used multiple times)",
+    )
+    group.add_argument(
         "--max-chat-history-tokens",
         type=int,
         default=None,
